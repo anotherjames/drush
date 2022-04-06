@@ -32,17 +32,14 @@ use Drush\Drush;
  * some keys of the array change.
  *
  * It is used to wrap batch's $context array and set log messages when values
- * are assigned to keys 'message' or 'error_message'.
+ * are assigned to 'error_message' key.
  *
  * @see _drush_batch_worker().
  */
 class DrushBatchContext extends ArrayObject {
   #[\ReturnTypeWillChange]
   function offsetSet($name, $value) {
-    if ($name == 'message') {
-      Drush::logger()->notice(strip_tags($value));
-    }
-    elseif ($name == 'error_message') {
+    if ($name == 'error_message') {
       Drush::logger()->error(strip_tags($value));
     }
     parent::offsetSet($name, $value);
@@ -251,7 +248,7 @@ function _drush_batch_worker() {
         'finished' => &$finished,
         'message'  => &$task_message,
       ];
-      // Magic wrap to catch changes to 'message' key.
+      // Magic wrap to catch changes to 'error_message' key.
       $batch_context = new DrushBatchContext($batch_context);
 
       // Tolerate recoverable errors.
@@ -272,6 +269,16 @@ function _drush_batch_worker() {
         $queue->deleteItem($item);
         $current_set['count']--;
         $current_set['sandbox'] = [];
+      }
+      else {
+        // Show execution progress of batch operation.
+        $percentage = round($finished * 100) . '%';
+        $batch_context['message'] .= ' - ' . $percentage;
+      }
+
+      // Print batch message.
+      if (!empty($batch_context['message'])) {
+        Drush::logger()->notice(strip_tags($batch_context['message']));
       }
     }
 
